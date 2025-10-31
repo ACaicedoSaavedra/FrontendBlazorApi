@@ -1,0 +1,151 @@
+﻿@* 
+    NavMenu.razor
+    Este componente define el menú lateral de navegación de la aplicación.
+    Aquí se colocan los enlaces a las distintas páginas (componentes .razor).
+    Por defecto la plantilla incluye: Home, Counter y Weather.
+    Se ha eliminado Weather porque era un ejemplo de la plantilla.
+    Más adelante aquí se agregará el acceso a la página de Productos.
+*@
+
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">Gestión</a>
+        <button title="Toggle navigation" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+        @* Enlace a la página Home (Index) *@
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="oi oi-home" aria-hidden="true"></span> Home
+            </NavLink>
+        </div>
+
+        @* Enlace a la página Counter (contador de ejemplo) *@
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="TipoProductos">
+                <span class="oi oi-plus" aria-hidden="true"></span> Tipo Productos
+            </NavLink>
+        </div>
+
+
+        @* Enlace a la página Usuarios *@
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Usuarios">
+                <span class="oi oi-plus" aria-hidden="true"></span> Usuarios
+            </NavLink>
+        </div>
+
+        @* Enlace a la página Entregables *@
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Entregables">
+                <span class="oi oi-plus" aria-hidden="true"></span> Entregables
+            </NavLink>
+        </div>
+
+        @* Enlace a la página Entregables *@
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="TipoResponsables">
+                <span class="oi oi-plus" aria-hidden="true"></span> Tipos de Responsables
+            </NavLink>
+        </div>
+
+        @* Enlace a la página TipoProyectos *@
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="TipoProyectos">
+                <span class="oi oi-plus" aria-hidden="true"></span> Tipo Proyectos
+            </NavLink>
+        </div>
+
+        @* Enlace a la página Estados *@
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Estados">
+                <span class="oi oi-plus" aria-hidden="true"></span> Estados
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="VariableEstrategicas">
+                <span class="oi oi-plus" aria-hidden="true"></span> Variables Estrategicas
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="ObjetivosEstrategicos">
+                <span class="oi oi-plus" aria-hidden="true"></span> Objetivos Estrategicos
+            </NavLink>
+        </div>
+
+         <div class="nav-item px-3">
+            <NavLink class="nav-link" href="MetasEstrategicas">
+                <span class="oi oi-plus" aria-hidden="true"></span> Metas Estrategicas
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Metas_Proyectos">
+                <span class="oi oi-plus" aria-hidden="true"></span> Metas_Proyectos
+            </NavLink>
+        </div>
+
+
+         <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Responsables">
+                <span class="oi oi-plus" aria-hidden="true"></span> Responsables
+            </NavLink>
+        </div>
+
+         <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Proyectos">
+                <span class="oi oi-plus" aria-hidden="true"></span> Proyectos
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Presupuestos">
+                <span class="oi oi-plus" aria-hidden="true"></span> Presupuestos
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="distribucionPresupuestos">
+                <span class="oi oi-plus" aria-hidden="true"></span> distribucion de Presupuestos
+            </NavLink>
+        </div>
+
+          <div class="nav-item px-3">
+            <NavLink class="nav-link" href="EjecucionPresupuestos">
+                <span class="oi oi-plus" aria-hidden="true"></span> Ejecucion de Presupuestos
+            </NavLink>
+        </div>
+        
+
+    </nav>
+</div>
+
+
+@code {
+    private bool colapsado = true;
+
+    /*
+        Propiedad que define la clase CSS aplicada al contenedor del menú.
+
+        Se usa un operador ternario:
+        - Si colapsado == true → retorna "collapse"
+        - Si colapsado == false → retorna null (sin clase)
+
+        Nota: Se declara como string? porque puede devolver un valor nulo.
+        Esto evita el warning CS8603 ("possible null reference return").
+    */
+    private string? NavMenuCssClass => colapsado ? "collapse" : null;
+
+    private void ToggleNavMenu()
+    {
+        colapsado = !colapsado;
+    }
+}

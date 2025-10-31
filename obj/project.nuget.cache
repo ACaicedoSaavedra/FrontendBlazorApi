@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "dgSpecHash": "2Xk5M8dflck=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\Andresito\\Desktop\\SERVICIOS WED - copia\\Proyecto de aula\\FrontendBlazorApi\\FrontendBlazorApi\\FrontendBlazorApi.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Andresito\\.nuget\\packages\\microsoft.netcore.app.ref\\8.0.21\\microsoft.netcore.app.ref.8.0.21.nupkg.sha512",
+    "C:\\Users\\Andresito\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\8.0.21\\microsoft.windowsdesktop.app.ref.8.0.21.nupkg.sha512",
+    "C:\\Users\\Andresito\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\8.0.21\\microsoft.aspnetcore.app.ref.8.0.21.nupkg.sha512",
+    "C:\\Users\\Andresito\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\8.0.21\\microsoft.netcore.app.host.win-x64.8.0.21.nupkg.sha512"
+  ],
+  "logs": []
+}

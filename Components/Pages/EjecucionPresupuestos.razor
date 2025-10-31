@@ -1,0 +1,603 @@
+@page "/EjecucionPresupuestos"
+
+@using System.Net.Http.Json
+@using System.Text.Json
+@using FrontendBlazorApi.Models
+@inject IHttpClientFactory fabricaHttp
+@rendermode InteractiveServer
+<PageTitle>Objetivos Estrategicos</PageTitle>
+
+<h3>Gestión de Tipos Productos</h3>
+@* ------------- BARRA DE ACCIONES GENERALES ------------- 
+    Botones que no están relacionados con el formulario específico
+*@
+<div class="mb-3 d-flex gap-2">
+    @* type="button" evita que estos botones hagan submit del formulario *@
+    <button type="button" class="btn btn-outline-secondary" @onclick="ProbarConexion">Probar conexión</button>
+    <button type="button" class="btn btn-outline-primary" @onclick="CargarEjecucionPresupuesto">Mostrar todos</button>
+    <button type="button" class="btn btn-outline-dark" @onclick="LimpiarFormulario">Limpiar</button>
+</div>
+
+@* ------------- MENSAJES DE ESTADO ------------- 
+    Muestra mensajes de éxito, error o información al EjecucionPresupuesto
+    Se usa renderizado condicional (@if) para mostrar solo cuando hay mensaje
+*@
+@if (!string.IsNullOrWhiteSpace(mensaje))
+{
+    @* La clase CSS viene de la variable claseAviso que cambia según el tipo de mensaje *@
+    <div class="@claseAviso" role="alert">@mensaje</div>
+}
+
+@* ------------- FORMULARIO CRUD ------------- 
+    EditForm: Componente de Blazor para formularios con validación
+    - Model: El objeto que se vincula al formulario
+    - OnValidSubmit: Método que se ejecuta cuando el formulario es válido y se envía
+    - FormName: CRÍTICO - Requerido en Blazor Server para identificar formularios únicos
+*@
+<h4>Formulario de EjecucionPresupuestos</h4>
+
+<EditForm Model="EjecucionPresupuestoActual" OnValidSubmit="GuardarSegunEstado" FormName="EjecucionPresupuestoForm">
+    @* Componentes de validación automática *@
+    <DataAnnotationsValidator /> 
+    <ValidationSummary />         
+
+    <div class="row g-3">
+        <div class="col-md-2">
+            <label class="form-label">Id</label>
+            <InputNumber class="form-control" @bind-Value="EjecucionPresupuestoActual.Id" />
+        </div>
+
+    </div>
+
+            <div class="col-md-2">
+    <label class="form-label">Presupuesto</label>
+    <InputSelect class="form-control" @bind-Value="EjecucionPresupuestoActual.IdPresupuesto">
+        <option value="0">Seleccione un Presupuesto...</option>
+        @foreach (var variable in listaPresupuesto)
+        {
+            <option value="@variable.Id">@variable.Id</option>
+        }
+    </InputSelect>
+</div>
+
+
+ <div class="row g-3">
+        <div class="col-md-2">
+            <label class="form-label">Anio</label>
+            <InputNumber class="form-control" @bind-Value="EjecucionPresupuestoActual.Anio" />
+        </div>
+
+<div class="row g-3">
+        <div class="col-md-2">
+            <label class="form-label">MontoPlaneado</label>
+            <InputNumber class="form-control" @bind-Value="EjecucionPresupuestoActual.MontoPlaneado" />
+        </div>
+
+<div class="row g-3">
+        <div class="col-md-2">
+            <label class="form-label">MontoEjecutado</label>
+            <InputNumber class="form-control" @bind-Value="EjecucionPresupuestoActual.MontoEjecutado" />
+        </div>
+        </div>
+
+        
+
+        <div class="col-md-2">
+            <label class="form-label">Observaciones</label>
+             @* CORRECCIÓN: Usar Contrasena con mayúsculas *@
+            <InputText class="form-control" @bind-Value="EjecucionPresupuestoActual.Observaciones" />
+         </div>
+
+     
+</div>
+
+
+</div>
+        
+    <div class="mt-3 d-flex flex-wrap gap-2">
+        @* 
+            type="submit": Este botón envía el formulario y ejecuta OnValidSubmit
+            El texto cambia dinámicamente entre "Crear" y "Actualizar"
+        *@
+        <button type="submit" class="btn btn-primary">@textoBotonGuardar</button>
+
+        @* 
+            type="button": Botones que NO envían el formulario
+            @onclick: Especifica el método C# que se ejecuta al hacer clic
+            disabled: Atributo dinámico que habilita/deshabilita según condiciones
+        *@
+        <button type="button" class="btn btn-secondary" @onclick="BuscarPorCodigo">Buscar</button>
+        <button type="button" class="btn btn-warning" @onclick="ActualizarEjecucionPresupuesto" disabled="@(!exiteEjecucionPresupuesto)">Actualizar</button>
+        <button type="button" class="btn btn-danger" @onclick="EliminarEjecucionPresupuestos" disabled="@(!exiteEjecucionPresupuesto)">Eliminar</button>
+    </div>
+</EditForm>
+
+<hr />
+
+@* ------------- LISTADO (READ/LIST) ------------- 
+    Muestra los EjecucionPresupuestos en una tabla con renderizado condicional
+*@
+
+@* Renderizado condicional: muestra diferentes contenidos según el estado *@
+@if (cargando)
+{
+    <p><em>Cargando EjecucionPresupuestos...</em></p>
+}
+else if (listarEjecucionPresupuesto.Count == 0)
+{
+    <p>No hay EjecucionPresupuestos disponibles.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>IdPresupuesto</th>
+                <th>Anio</th>
+                <th>MontoPlaneado</th>
+                <th>MontoEjecutado</th>
+                <th>Observaciones</th>
+                
+            </tr>
+        </thead>
+        <tbody>
+            @* 
+                @foreach: Itera sobre la lista y genera HTML para cada elemento
+                Cada EjecucionPresupuesto (u) se renderiza como una fila
+            *@
+            @foreach (var u in listarEjecucionPresupuesto)
+            {
+                <tr>
+                    @* @ permite usar variables C# dentro de HTML *@
+                    <td>@u.Id</td>
+                    <td>@u.IdPresupuesto</td>
+                    <td>@u.Anio</td>
+                    <td>@u.MontoPlaneado</td>
+                    <td>@u.MontoEjecutado</td>
+                    <td>@u.Observaciones</td>
+
+                    <td>
+                        @* 
+                            @(() => método(parámetro)): Lambda expression para pasar parámetros
+                            Cada botón "sabe" que EjecucionPresupuesto carga en el formulario
+                        *@
+                        <button type="button" class="btn btn-sm btn-outline-primary" 
+                                @onclick="@(() => CargarEnFormulario(u))">
+                            Cargar
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+} 
+
+@code {
+    // =============================================================================
+    // VARIABLES DE ESTADO DEL COMPONENTE
+    // =============================================================================
+    
+    // Lista que contiene todos los productos para mostrar en la tabla
+    private List<Presupuesto> listaPresupuesto = new();
+    private List<EjecucionPresupuesto> listarEjecucionPresupuesto = new();
+    
+    // CRÍTICO: [SupplyParameterFromForm] 
+    // Este atributo le dice a Blazor que esta propiedad se llena desde el formulario
+    // Sin esto, el formulario no funciona correctamente en Blazor Server
+    [SupplyParameterFromForm]
+    private EjecucionPresupuesto EjecucionPresupuestoActual { get; set; } = new();
+    
+    // Bandera que indica si el producto en el formulario ya existe en la base de datos
+    // Determina si el botón principal dice "Crear" o "Actualizar"
+    private bool exiteEjecucionPresupuesto = false;
+    
+    // Texto dinámico del botón principal
+    private string textoBotonGuardar = "Crear";
+    
+    // Variables para mostrar mensajes al EjecucionPresupuesto
+    private string mensaje = "";
+    private string claseAviso = "alert alert-info"; // Clase CSS Bootstrap para el tipo de mensaje
+    
+    // Indicador visual de carga para mejorar UX
+    private bool cargando = false;
+    
+    // URL base de la API - se complementa con la BaseAddress configurada en Program.cs
+    private const string urlBaseApi = "api/EjecucionPresupuesto";
+
+    // =============================================================================
+    // MÉTODOS DEL CICLO DE VIDA DEL COMPONENTE
+    // =============================================================================
+    
+    /// <summary>
+    /// Se ejecuta automáticamente cuando el componente se inicializa
+    /// Es async porque necesita esperar la carga de datos de la API
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarEjecucionPresupuesto();
+        await CargarPresupuesto();
+    }
+
+    // =============================================================================
+    // OPERACIONES CRUDL (CREATE, READ, UPDATE, DELETE, LIST)
+    // =============================================================================
+    
+    /// <summary>
+    /// LISTAR: Obtiene todos los EjecucionPresupuestos de la API
+    /// HTTP GET /api/EjecucionPresupuesto
+    /// </summary>
+
+    private async Task CargarPresupuesto()
+{
+    try
+        {
+            cargando = true;
+            var cliente = fabricaHttp.CreateClient("ApiPresupuestos");
+
+            var json = await cliente.GetStringAsync(urlBaseApi);
+
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            options.Converters.Add(new DateTimeCustomConverter());
+            options.NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString;
+
+            var respuesta = JsonSerializer.Deserialize<RespuestaApi<List<Presupuesto>>>(json, options);
+            listaPresupuesto = respuesta?.Datos ?? new List<Presupuesto>();
+
+            mensaje = $"Se cargaron {listaPresupuesto.Count}Presupuesto(s).";
+            claseAviso = "alert alert-success";
+        }
+        catch (Exception error)
+        {
+            mensaje = $"Error al listar Presupuesto: {error.Message}";
+            claseAviso = "alert alert-danger";
+        }
+        finally
+        {
+            cargando = false;
+        }
+}
+
+    private async Task CargarEjecucionPresupuesto()
+    {
+        try
+        {
+            cargando = true;
+            var cliente = fabricaHttp.CreateClient("ApiEjetucionPresupuestos");
+
+            var json = await cliente.GetStringAsync(urlBaseApi);
+
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            options.Converters.Add(new DateTimeCustomConverter());
+            options.NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString;
+
+            var respuesta = JsonSerializer.Deserialize<RespuestaApi<List<EjecucionPresupuesto>>>(json, options);
+            listarEjecucionPresupuesto = respuesta?.Datos ?? new List<EjecucionPresupuesto>();
+
+            mensaje = $"Se cargaron {listarEjecucionPresupuesto.Count} EjecucionPresupuesto(s).";
+            claseAviso = "alert alert-success";
+        }
+        catch (Exception error)
+        {
+            mensaje = $"Error al listar EjecucionPresupuesto: {error.Message}";
+            claseAviso = "alert alert-danger";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    /// <summary>
+    /// BUSCAR: Busca un EjecucionPresupuesto específico por Id
+    /// HTTP GET /api/EjecucionPresupuesto/id/{id}
+    /// </summary>
+ private async Task BuscarPorCodigo()
+    {
+        LimpiarMensajes();
+
+        // Validación de entrada
+    if (EjecucionPresupuestoActual.Id <= 0) 
+    {
+    mensaje = "Debe indicar un Id válido.";
+    claseAviso = "alert alert-warning";
+    return;
+    }
+
+        try
+        {
+            var cliente = fabricaHttp.CreateClient("ApiEjetucionPresupuestos");
+            
+            // Construcción dinámica de la URL con el código
+            var ruta = $"{urlBaseApi}/Id/{EjecucionPresupuestoActual.Id}";
+            var respuesta = await cliente.GetFromJsonAsync<RespuestaApi<List<EjecucionPresupuesto>>>(ruta);
+
+            // FirstOrDefault: Toma el primer elemento o null si no hay elementos
+            var encontrado = respuesta?.Datos?.FirstOrDefault();
+
+            if (encontrado is not null)
+            {
+                // ENCONTRADO: Carga los datos en el formulario
+                EjecucionPresupuestoActual = new EjecucionPresupuesto
+                {
+                    Id = encontrado.Id,
+                    IdPresupuesto = encontrado.IdPresupuesto,
+                    Anio = encontrado.Anio,
+                    MontoPlaneado = encontrado.MontoPlaneado,
+                    MontoEjecutado = encontrado.MontoEjecutado,
+                    Observaciones = encontrado.Observaciones
+                    
+                };
+                exiteEjecucionPresupuesto = true;
+                textoBotonGuardar = "Actualizar";
+                mensaje = "EjecucionPresupuesto cargado en el formulario.";
+                claseAviso = "alert alert-success";
+            }
+            else
+            {
+                // NO ENCONTRADO: Resetea el estado a "crear"
+                exiteEjecucionPresupuesto = false;
+                textoBotonGuardar = "Crear";
+                mensaje = "EjecucionPresupuesto no encontrado.";
+                claseAviso = "alert alert-warning";
+            }
+        }
+        catch (Exception error)
+        {
+            // Error: Resetea a estado seguro
+            exiteEjecucionPresupuesto = false;
+            textoBotonGuardar = "Crear";
+            mensaje = $"Error al buscar EjecucionPresupuesto: {error.Message}";
+            claseAviso = "alert alert-danger";
+        }
+    }
+
+    /// <summary>
+    /// LÓGICA INTELIGENTE: Decide si crear o actualizar según el estado
+    /// Se ejecuta cuando se envía el formulario (OnValidSubmit)
+    /// </summary>
+    private async Task GuardarSegunEstado()
+    {
+        if (exiteEjecucionPresupuesto)
+            await ActualizarEjecucionPresupuesto();
+        else
+            await CrearEjecucionPresupuesto();
+    }
+
+    /// <summary>
+    /// CREAR: Crea un nuevo EjecucionPresupuesto
+    /// HTTP POST /api/EjecucionPresupuesto
+    /// </summary>
+    
+ private async Task CrearEjecucionPresupuesto()
+    {
+        LimpiarMensajes();
+
+        try
+        {
+            var cliente = fabricaHttp.CreateClient("ApiEjetucionPresupuestos");
+            
+            // PostAsJsonAsync: Serializa el objeto a JSON y hace POST
+            var respuesta = await cliente.PostAsJsonAsync(urlBaseApi, EjecucionPresupuestoActual);
+
+            // IsSuccessStatusCode: Verifica códigos HTTP 200-299
+            if (respuesta.IsSuccessStatusCode)
+            {
+                mensaje = "EjecucionPresupuesto creado correctamente.";
+                claseAviso = "alert alert-success";
+                
+                // Refresca la lista para mostrar el nuevo producto
+                await CargarEjecucionPresupuesto();
+                
+                // Limpia el formulario para una nueva creación                
+             
+                EjecucionPresupuestoActual = new EjecucionPresupuesto();
+                exiteEjecucionPresupuesto = false;
+                textoBotonGuardar = "Crear";
+            }
+            else
+            {
+                // Error HTTP: Lee el detalle del error
+                var detalle = await respuesta.Content.ReadAsStringAsync();
+                mensaje = $"No se pudo crear el EjecucionPresupuesto. Detalle: {detalle}";
+                claseAviso = "alert alert-danger";
+            }
+        }
+        catch (Exception error)
+        {
+            mensaje = $"Error al crear EjecucionPresupuesto: {error.Message}";
+            claseAviso = "alert alert-danger";
+        }
+    }
+
+    /// <summary>
+    /// ACTUALIZAR: Actualiza un EjecucionPresupuesto existente
+    /// HTTP PUT /api/EjecucionPresupuesto/Id/{Id}
+    /// </summary>
+ 
+   private async Task ActualizarEjecucionPresupuesto()
+    {
+        LimpiarMensajes();
+
+        if (EjecucionPresupuestoActual.Id <= 0)
+        {
+            mensaje = "Debe indicar un Id válido para poder actualizar";
+            claseAviso = "alert alert-warning";
+            return;
+        }
+
+        try
+        {
+            var cliente = fabricaHttp.CreateClient("ApiEjetucionPresupuestos");
+
+            
+            var ruta = $"{urlBaseApi}/id/{EjecucionPresupuestoActual.Id}";
+
+            
+            var datos = new Dictionary<string, object?>
+            {
+                { "IdPresupuesto", EjecucionPresupuestoActual.IdPresupuesto },
+                { "Anio", EjecucionPresupuestoActual.Anio },
+                { "MontoPlaneado", EjecucionPresupuestoActual.MontoPlaneado },
+                { "MontoEjecutado", EjecucionPresupuestoActual.MontoEjecutado },
+                { "Observaciones", EjecucionPresupuestoActual.Observaciones }
+               
+                
+            };
+
+            var respuesta = await cliente.PutAsJsonAsync(ruta, datos);
+
+            if (respuesta.IsSuccessStatusCode)
+            {
+                mensaje = "EjecucionPresupuestos actualizado correctamente.";
+                claseAviso = "alert alert-success";
+                await CargarEjecucionPresupuesto();
+                exiteEjecucionPresupuesto = true;
+                textoBotonGuardar = "Actualizar";
+            }
+            else
+            {
+                var detalle = await respuesta.Content.ReadAsStringAsync();
+                mensaje = $"No se pudo actualizar el EjecucionPresupuesto. Detalle: {detalle}";
+                claseAviso = "alert alert-danger";
+            }
+        }
+        catch (Exception error)
+        {
+            mensaje = $"Error al actualizar EjecucionPresupuesto: {error.Message}";
+            claseAviso = "alert alert-danger";
+        }
+    }
+    /// <summary>
+    /// ELIMINAR: Elimina un EjecucionPresupuesto existente
+    /// HTTP DELETE /api/EjecucionPresupuesto/codigo/{codigo}
+    /// </summary>
+private async Task EliminarEjecucionPresupuestos()
+    {
+        LimpiarMensajes();
+
+        if (EjecucionPresupuestoActual.Id <= 0)
+        {
+            mensaje = "Debe indicar el Id para eliminar.";
+            claseAviso = "alert alert-warning";
+            return;
+        }
+
+        try
+        {
+            var cliente = fabricaHttp.CreateClient("ApiEjetucionPresupuestos");
+            
+            // DELETE solo necesita el código en la URL
+            var ruta = $"{urlBaseApi}/Id/{EjecucionPresupuestoActual.Id}";
+            var respuesta = await cliente.DeleteAsync(ruta);
+
+            if (respuesta.IsSuccessStatusCode)
+            {
+                mensaje = "EjecucionPresupuesto eliminado correctamente.";
+                claseAviso = "alert alert-success";
+                
+                // Refresca la lista (ya no aparecerá el EjecucionPresupuesto eliminado)
+                await CargarEjecucionPresupuesto();
+                
+                // Limpia completamente el formulario
+                LimpiarFormulario();
+            }
+            else
+            {
+                var detalle = await respuesta.Content.ReadAsStringAsync();
+                mensaje = $"No se pudo eliminar el EjecucionPresupuesto. Detalle: {detalle}";
+                claseAviso = "alert alert-danger";
+            }
+        }
+        catch (Exception error)
+        {
+            mensaje = $"Error al eliminar EjecucionPresupuestos: {error.Message}";
+            claseAviso = "alert alert-danger";
+        }
+    }
+
+    // =============================================================================
+    // MÉTODOS AUXILIARES Y DE UTILIDAD
+    // =============================================================================
+    
+    /// <summary>
+    /// Prueba la conectividad con la API sin procesar datos
+    /// Útil para diagnóstico de problemas de red
+    /// </summary>
+    private async Task ProbarConexion()
+    {
+        LimpiarMensajes();
+
+        try
+        {
+            var cliente = fabricaHttp.CreateClient("ApiEjetucionPresupuestos");
+            
+            // Solo hace GET sin deserializar, para probar conectividad
+            var respuesta = await cliente.GetAsync(urlBaseApi);
+            
+            if (respuesta.IsSuccessStatusCode)
+            {
+                mensaje = "Conexión con la API verificada.";
+                claseAviso = "alert alert-success";
+            }
+            else
+            {
+                mensaje = $"La API respondió con estado {(int)respuesta.StatusCode}.";
+                claseAviso = "alert alert-warning";
+            }
+        }
+        catch (Exception error)
+        {
+            mensaje = $"Error de conexión a la API: {error.Message}";
+            claseAviso = "alert alert-danger";
+        }
+    }
+
+    /// <summary>
+    /// Carga un EjecucionPresupuesto de la tabla en el formulario para edición
+    /// Se ejecuta cuando el EjecucionPresupuesto hace clic en "Cargar" en la tabla
+    /// </summary>
+    /// <param name="u">El EjecucionPresupuesto seleccionado de la tabla</param>
+
+    private void CargarEnFormulario(EjecucionPresupuesto u)
+    {
+        // Crea una NUEVA instancia para evitar referencias compartidas
+        // Si asignaras directamente (EjecucionPresupuestoActual = u), cualquier cambio
+        // en el formulario modificaría también el objeto en la lista
+        EjecucionPresupuestoActual = new EjecucionPresupuesto
+        {
+            Id = u.Id,
+            IdPresupuesto = u.IdPresupuesto,
+            Anio = u.Anio,
+            MontoPlaneado = u.MontoPlaneado,
+            MontoEjecutado = u.MontoEjecutado,
+            Observaciones = u.Observaciones
+        };
+        
+        // Cambia el estado a "EjecucionPresupuesto existente"
+        exiteEjecucionPresupuesto = true;
+        textoBotonGuardar = "Actualizar";
+        mensaje = "EjecucionPresupuesto seleccionado desde el listado.";
+        claseAviso = "alert alert-info";
+    }
+
+    /// <summary>
+    /// Limpia solo los mensajes de estado, mantiene los datos
+    /// </summary>
+    private void LimpiarMensajes()
+    {
+        mensaje = "";
+        claseAviso = "alert alert-info";
+    }
+
+    /// <summary>
+    /// Resetea completamente el formulario a estado inicial
+    /// </summary>
+    private void LimpiarFormulario()
+    {
+        EjecucionPresupuestoActual = new EjecucionPresupuesto();
+        exiteEjecucionPresupuesto = false;
+        textoBotonGuardar = "Crear";
+        LimpiarMensajes();
+    }
+}

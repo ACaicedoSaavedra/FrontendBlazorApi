@@ -1,0 +1,523 @@
+@page "/TipoProyectos"
+
+@using System.Net.Http.Json
+@using FrontendBlazorApi.Models
+@inject IHttpClientFactory fabricaHttp
+@rendermode InteractiveServer
+
+<PageTitle>Tipo Producto</PageTitle>
+
+<h3>Gestión de Tipos Proyectos</h3>
+@* ------------- BARRA DE ACCIONES GENERALES ------------- 
+    Botones que no están relacionados con el formulario específico
+*@
+<div class="mb-3 d-flex gap-2">
+    @* type="button" evita que estos botones hagan submit del formulario *@
+    <button type="button" class="btn btn-outline-secondary" @onclick="ProbarConexion">Probar conexión</button>
+    <button type="button" class="btn btn-outline-primary" @onclick="CargarTipoProyecto">Mostrar todos</button>
+    <button type="button" class="btn btn-outline-dark" @onclick="LimpiarFormulario">Limpiar</button>
+</div>
+
+@* ------------- MENSAJES DE ESTADO ------------- 
+    Muestra mensajes de éxito, error o información al usuario
+    Se usa renderizado condicional (@if) para mostrar solo cuando hay mensaje
+*@
+@if (!string.IsNullOrWhiteSpace(mensaje))
+{
+    @* La clase CSS viene de la variable claseAviso que cambia según el tipo de mensaje *@
+    <div class="@claseAviso" role="alert">@mensaje</div>
+}
+
+@* ------------- FORMULARIO CRUD ------------- 
+    EditForm: Componente de Blazor para formularios con validación
+    - Model: El objeto que se vincula al formulario
+    - OnValidSubmit: Método que se ejecuta cuando el formulario es válido y se envía
+    - FormName: CRÍTICO - Requerido en Blazor Server para identificar formularios únicos
+*@
+<h4>Formulario de Tipos Proyectos</h4>
+
+<EditForm Model="TipoProyectoActual" OnValidSubmit="GuardarSegunEstado" FormName="TipoProyectoForm">
+    @* Componentes de validación automática *@
+    <DataAnnotationsValidator /> 
+    <ValidationSummary />         
+
+    <div class="row g-3">
+        <div class="col-md-2">
+            <label class="form-label">Id</label>
+            <InputNumber class="form-control" @bind-Value="TipoProyectoActual.Id" />
+        </div>
+
+        <div class="col-md-5">
+            <label class="form-label">Nombre</label>
+            <InputText class="form-control" @bind-Value="TipoProyectoActual.Nombre" />
+        </div>
+
+        <div class="col-md-2">
+            <label class="form-label">Descripcion</label>
+             @* CORRECCIÓN: Usar Contrasena con mayúsculas *@
+            <InputText class="form-control" @bind-Value="TipoProyectoActual.Descripcion" />
+         </div>
+
+</div>
+        
+    <div class="mt-3 d-flex flex-wrap gap-2">
+        @* 
+            type="submit": Este botón envía el formulario y ejecuta OnValidSubmit
+            El texto cambia dinámicamente entre "Crear" y "Actualizar"
+        *@
+        <button type="submit" class="btn btn-primary">@textoBotonGuardar</button>
+
+        @* 
+            type="button": Botones que NO envían el formulario
+            @onclick: Especifica el método C# que se ejecuta al hacer clic
+            disabled: Atributo dinámico que habilita/deshabilita según condiciones
+        *@
+        <button type="button" class="btn btn-secondary" @onclick="BuscarPorCodigo">Buscar</button>
+        <button type="button" class="btn btn-warning" @onclick="ActualizarTipoProyecto" disabled="@(!exiteTipoProyecto)">Actualizar</button>
+        <button type="button" class="btn btn-danger" @onclick="EliminarTipoProyectos" disabled="@(!exiteTipoProyecto)">Eliminar</button>
+    </div>
+</EditForm>
+
+<hr />
+
+@* ------------- LISTADO (READ/LIST) ------------- 
+    Muestra los usuarios en una tabla con renderizado condicional
+*@
+
+@* Renderizado condicional: muestra diferentes contenidos según el estado *@
+@if (cargando)
+{
+    <p><em>Cargando usuarios...</em></p>
+}
+else if (listarTipoProyecto.Count == 0)
+{
+    <p>No hay usuarios disponibles.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Titulo</th>
+                <th>Descripcion</th>
+            </tr>
+        </thead>
+        <tbody>
+            @* 
+                @foreach: Itera sobre la lista y genera HTML para cada elemento
+                Cada usuario (u) se renderiza como una fila
+            *@
+            @foreach (var u in listarTipoProyecto)
+            {
+                <tr>
+                    @* @ permite usar variables C# dentro de HTML *@
+                    <td>@u.Id</td>
+                    <td>@u.Nombre</td>
+                    <td>@u.Descripcion</td>
+                    <td>
+                        @* 
+                            @(() => método(parámetro)): Lambda expression para pasar parámetros
+                            Cada botón "sabe" que usuario carga en el formulario
+                        *@
+                        <button type="button" class="btn btn-sm btn-outline-primary" 
+                                @onclick="@(() => CargarEnFormulario(u))">
+                            Cargar
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+} 
+
+@code {
+    // =============================================================================
+    // VARIABLES DE ESTADO DEL COMPONENTE
+    // =============================================================================
+    
+    // Lista que contiene todos los productos para mostrar en la tabla
+    private List<TipoProyecto> listarTipoProyecto = new();  
+    
+    // CRÍTICO: [SupplyParameterFromForm] 
+    // Este atributo le dice a Blazor que esta propiedad se llena desde el formulario
+    // Sin esto, el formulario no funciona correctamente en Blazor Server
+    [SupplyParameterFromForm]
+    private TipoProyecto TipoProyectoActual { get; set; } = new();
+    
+    // Bandera que indica si el producto en el formulario ya existe en la base de datos
+    // Determina si el botón principal dice "Crear" o "Actualizar"
+    private bool exiteTipoProyecto = false;
+    
+    // Texto dinámico del botón principal
+    private string textoBotonGuardar = "Crear";
+    
+    // Variables para mostrar mensajes al usuario
+    private string mensaje = "";
+    private string claseAviso = "alert alert-info"; // Clase CSS Bootstrap para el tipo de mensaje
+    
+    // Indicador visual de carga para mejorar UX
+    private bool cargando = false;
+    
+    // URL base de la API - se complementa con la BaseAddress configurada en Program.cs
+    private const string urlBaseApi = "api/TipoProyecto";
+
+    // =============================================================================
+    // MÉTODOS DEL CICLO DE VIDA DEL COMPONENTE
+    // =============================================================================
+    
+    /// <summary>
+    /// Se ejecuta automáticamente cuando el componente se inicializa
+    /// Es async porque necesita esperar la carga de datos de la API
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarTipoProyecto();
+    }
+
+    // =============================================================================
+    // OPERACIONES CRUDL (CREATE, READ, UPDATE, DELETE, LIST)
+    // =============================================================================
+    
+    /// <summary>
+    /// LISTAR: Obtiene todos los usuarios de la API
+    /// HTTP GET /api/usuario
+    /// </summary>
+    private async Task CargarTipoProyecto()
+    {
+        try
+        {
+            // Indica que está cargando para mostrar mensaje al usuario
+            cargando = true;
+            
+            // Crea un cliente HTTP configurado (ver Program.cs)
+            var cliente = fabricaHttp.CreateClient("ApiTipoProyectos");
+
+            // GetFromJsonAsync: Hace GET y deserializa automáticamente el JSON
+            // RespuestaApi<List<Usuario>>: Tipo genérico que mapea la estructura de respuesta
+            var respuesta = await cliente.GetFromJsonAsync<RespuestaApi<List<TipoProyecto>>>(urlBaseApi);
+            
+            // Operador null-coalescing (??) para manejar respuestas nulas
+            listarTipoProyecto = respuesta?.Datos ?? new List<TipoProyecto>();
+
+            // Mensaje de éxito
+            mensaje = $"Se cargaron {listarTipoProyecto.Count} Tipo Producto(s).";
+            claseAviso = "alert alert-success";
+        }
+        catch (Exception error)
+        {
+            // Manejo de errores con mensaje para el usuario
+            mensaje = $"Error al  listar Tipo Producto: {error.Message}";
+            claseAviso = "alert alert-danger";
+        }
+        finally
+        {
+            // Finally garantiza que siempre se ejecute, incluso si hay error
+            cargando = false;
+        }
+    }
+
+    /// <summary>
+    /// BUSCAR: Busca un usuario específico por Id
+    /// HTTP GET /api/usuario/id/{id}
+    /// </summary>
+ private async Task BuscarPorCodigo()
+    {
+        LimpiarMensajes();
+
+        // Validación de entrada
+    if (TipoProyectoActual.Id <= 0) 
+    {
+    mensaje = "Debe indicar un Id válido.";
+    claseAviso = "alert alert-warning";
+    return;
+    }
+
+        try
+        {
+            var cliente = fabricaHttp.CreateClient("ApiTipoProyectos");
+            
+            // Construcción dinámica de la URL con el código
+            var ruta = $"{urlBaseApi}/Id/{TipoProyectoActual.Id}";
+            var respuesta = await cliente.GetFromJsonAsync<RespuestaApi<List<TipoProyecto>>>(ruta);
+
+            // FirstOrDefault: Toma el primer elemento o null si no hay elementos
+            var encontrado = respuesta?.Datos?.FirstOrDefault();
+
+            if (encontrado is not null)
+            {
+                // ENCONTRADO: Carga los datos en el formulario
+                TipoProyectoActual = new TipoProyecto
+                {
+                    Id = encontrado.Id,
+                    Nombre = encontrado.Nombre,
+                    Descripcion = encontrado.Descripcion,
+                    
+                };
+                exiteTipoProyecto = true;
+                textoBotonGuardar = "Actualizar";
+                mensaje = "TipoProyecto cargado en el formulario.";
+                claseAviso = "alert alert-success";
+            }
+            else
+            {
+                // NO ENCONTRADO: Resetea el estado a "crear"
+                exiteTipoProyecto = false;
+                textoBotonGuardar = "Crear";
+                mensaje = "TipoProyecto no encontrado.";
+                claseAviso = "alert alert-warning";
+            }
+        }
+        catch (Exception error)
+        {
+            // Error: Resetea a estado seguro
+            exiteTipoProyecto = false;
+            textoBotonGuardar = "Crear";
+            mensaje = $"Error al buscar TipoProyecto: {error.Message}";
+            claseAviso = "alert alert-danger";
+        }
+    }
+
+    /// <summary>
+    /// LÓGICA INTELIGENTE: Decide si crear o actualizar según el estado
+    /// Se ejecuta cuando se envía el formulario (OnValidSubmit)
+    /// </summary>
+    private async Task GuardarSegunEstado()
+    {
+        if (exiteTipoProyecto)
+            await ActualizarTipoProyecto();
+        else
+            await CrearTipoProyecto();
+    }
+
+    /// <summary>
+    /// CREAR: Crea un nuevo usuario
+    /// HTTP POST /api/usuario
+    /// </summary>
+    
+ private async Task CrearTipoProyecto()
+    {
+        LimpiarMensajes();
+
+        try
+        {
+            var cliente = fabricaHttp.CreateClient("ApiTipoProyectos");
+            
+            // PostAsJsonAsync: Serializa el objeto a JSON y hace POST
+            var respuesta = await cliente.PostAsJsonAsync(urlBaseApi, TipoProyectoActual);
+
+            // IsSuccessStatusCode: Verifica códigos HTTP 200-299
+            if (respuesta.IsSuccessStatusCode)
+            {
+                mensaje = "TipoProyecto creado correctamente.";
+                claseAviso = "alert alert-success";
+                
+                // Refresca la lista para mostrar el nuevo producto
+                await CargarTipoProyecto();
+                
+                // Limpia el formulario para una nueva creación                
+             
+                TipoProyectoActual = new TipoProyecto();
+                exiteTipoProyecto = false;
+                textoBotonGuardar = "Crear";
+            }
+            else
+            {
+                // Error HTTP: Lee el detalle del error
+                var detalle = await respuesta.Content.ReadAsStringAsync();
+                mensaje = $"No se pudo crear el TipoProyecto. Detalle: {detalle}";
+                claseAviso = "alert alert-danger";
+            }
+        }
+        catch (Exception error)
+        {
+            mensaje = $"Error al crear TipoProyecto: {error.Message}";
+            claseAviso = "alert alert-danger";
+        }
+    }
+
+    /// <summary>
+    /// ACTUALIZAR: Actualiza un TipoProyecto existente
+    /// HTTP PUT /api/usuario/Id/{Id}
+    /// </summary>
+ 
+   private async Task ActualizarTipoProyecto()
+    {
+        LimpiarMensajes();
+
+        if (TipoProyectoActual.Id <= 0)
+        {
+            mensaje = "Debe indicar un Id válido para poder actualizar";
+            claseAviso = "alert alert-warning";
+            return;
+        }
+
+        try
+        {
+            var cliente = fabricaHttp.CreateClient("ApiTipoProyectos");
+
+            
+            var ruta = $"{urlBaseApi}/id/{TipoProyectoActual.Id}";
+
+            
+            var datos = new Dictionary<string, object?>
+            {
+                { "Titulo", TipoProyectoActual.Nombre },
+                { "Descripcion", TipoProyectoActual.Descripcion },
+                
+            };
+
+            var respuesta = await cliente.PutAsJsonAsync(ruta, datos);
+
+            if (respuesta.IsSuccessStatusCode)
+            {
+                mensaje = "TipoProyectos actualizado correctamente.";
+                claseAviso = "alert alert-success";
+                await CargarTipoProyecto();
+                exiteTipoProyecto = true;
+                textoBotonGuardar = "Actualizar";
+            }
+            else
+            {
+                var detalle = await respuesta.Content.ReadAsStringAsync();
+                mensaje = $"No se pudo actualizar el usuario. Detalle: {detalle}";
+                claseAviso = "alert alert-danger";
+            }
+        }
+        catch (Exception error)
+        {
+            mensaje = $"Error al actualizar usuario: {error.Message}";
+            claseAviso = "alert alert-danger";
+        }
+    }
+    /// <summary>
+    /// ELIMINAR: Elimina un usuario existente
+    /// HTTP DELETE /api/usuario/codigo/{codigo}
+    /// </summary>
+private async Task EliminarTipoProyectos()
+    {
+        LimpiarMensajes();
+
+        if (TipoProyectoActual.Id <= 0)
+        {
+            mensaje = "Debe indicar el Id para eliminar.";
+            claseAviso = "alert alert-warning";
+            return;
+        }
+
+        try
+        {
+            var cliente = fabricaHttp.CreateClient("ApiTipoProyectos");
+            
+            // DELETE solo necesita el código en la URL
+            var ruta = $"{urlBaseApi}/Id/{TipoProyectoActual.Id}";
+            var respuesta = await cliente.DeleteAsync(ruta);
+
+            if (respuesta.IsSuccessStatusCode)
+            {
+                mensaje = "Usuario eliminado correctamente.";
+                claseAviso = "alert alert-success";
+                
+                // Refresca la lista (ya no aparecerá el Usuario eliminado)
+                await CargarTipoProyecto();
+                
+                // Limpia completamente el formulario
+                LimpiarFormulario();
+            }
+            else
+            {
+                var detalle = await respuesta.Content.ReadAsStringAsync();
+                mensaje = $"No se pudo eliminar el usuario. Detalle: {detalle}";
+                claseAviso = "alert alert-danger";
+            }
+        }
+        catch (Exception error)
+        {
+            mensaje = $"Error al eliminar usuarios: {error.Message}";
+            claseAviso = "alert alert-danger";
+        }
+    }
+
+    // =============================================================================
+    // MÉTODOS AUXILIARES Y DE UTILIDAD
+    // =============================================================================
+    
+    /// <summary>
+    /// Prueba la conectividad con la API sin procesar datos
+    /// Útil para diagnóstico de problemas de red
+    /// </summary>
+    private async Task ProbarConexion()
+    {
+        LimpiarMensajes();
+
+        try
+        {
+            var cliente = fabricaHttp.CreateClient("ApiTipoProyectos");
+            
+            // Solo hace GET sin deserializar, para probar conectividad
+            var respuesta = await cliente.GetAsync(urlBaseApi);
+            
+            if (respuesta.IsSuccessStatusCode)
+            {
+                mensaje = "Conexión con la API verificada.";
+                claseAviso = "alert alert-success";
+            }
+            else
+            {
+                mensaje = $"La API respondió con estado {(int)respuesta.StatusCode}.";
+                claseAviso = "alert alert-warning";
+            }
+        }
+        catch (Exception error)
+        {
+            mensaje = $"Error de conexión a la API: {error.Message}";
+            claseAviso = "alert alert-danger";
+        }
+    }
+
+    /// <summary>
+    /// Carga un usuario de la tabla en el formulario para edición
+    /// Se ejecuta cuando el usuario hace clic en "Cargar" en la tabla
+    /// </summary>
+    /// <param name="u">El usuario seleccionado de la tabla</param>
+
+    private void CargarEnFormulario(TipoProyecto u)
+    {
+        // Crea una NUEVA instancia para evitar referencias compartidas
+        // Si asignaras directamente (TipoProyectoActual = u), cualquier cambio
+        // en el formulario modificaría también el objeto en la lista
+        TipoProyectoActual = new TipoProyecto
+        {
+            Id = u.Id,
+            Nombre = u.Nombre,
+            Descripcion = u.Descripcion,
+                   
+        };
+        
+        // Cambia el estado a "usuario existente"
+        exiteTipoProyecto = true;
+        textoBotonGuardar = "Actualizar";
+        mensaje = "Usuario seleccionado desde el listado.";
+        claseAviso = "alert alert-info";
+    }
+
+    /// <summary>
+    /// Limpia solo los mensajes de estado, mantiene los datos
+    /// </summary>
+    private void LimpiarMensajes()
+    {
+        mensaje = "";
+        claseAviso = "alert alert-info";
+    }
+
+    /// <summary>
+    /// Resetea completamente el formulario a estado inicial
+    /// </summary>
+    private void LimpiarFormulario()
+    {
+        TipoProyectoActual = new TipoProyecto();
+        exiteTipoProyecto = false;
+        textoBotonGuardar = "Crear";
+        LimpiarMensajes();
+    }
+}
